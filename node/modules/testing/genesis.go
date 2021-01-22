@@ -86,7 +86,7 @@ func MakeGenesis(outFile, genesisTemplate string) func(bs dtypes.ChainBlockstore
 			sm := stmgr.NewStateManager(cs)
 			ts, err := types.NewTipSet([]*types.BlockHeader{b.Genesis})
 			if err != nil {
-				return nil, xerrors.Errorf("Failed to greateafeawefawef ")
+				return nil, xerrors.Errorf("Failed to generate new tipset from block")
 			}
 			s, err := stmgr.UpgradeActorsV2(context.TODO(), sm, nil, b.Genesis.ParentStateRoot, b.Genesis.Height, ts)
 			if err != nil {
