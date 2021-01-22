@@ -10,6 +10,7 @@ import (
 
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	offline "github.com/ipfs/go-ipfs-exchange-offline"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipfs/go-merkledag"
@@ -20,6 +21,8 @@ import (
 	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/gen"
 	genesis2 "github.com/filecoin-project/lotus/chain/gen/genesis"
+	"github.com/filecoin-project/lotus/chain/stmgr"
+	"github.com/filecoin-project/lotus/chain/store"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/filecoin-project/lotus/chain/vm"
 	"github.com/filecoin-project/lotus/genesis"
@@ -78,8 +81,26 @@ func MakeGenesis(outFile, genesisTemplate string) func(bs dtypes.ChainBlockstore
 			if err != nil {
 				return nil, xerrors.Errorf("make genesis block: %w", err)
 			}
-
 			fmt.Printf("GENESIS MINER ADDRESS: t0%d\n", genesis2.MinerStart)
+			cs := store.NewChainStore(bs, bs, datastore.NewMapDatastore(), syscalls, journal.NilJournal())
+			sm := stmgr.NewStateManager(cs)
+			ts, err := types.NewTipSet([]*types.BlockHeader{b.Genesis})
+			if err != nil {
+				return nil, xerrors.Errorf("Failed to greateafeawefawef ")
+			}
+			s, err := stmgr.UpgradeActorsV2(context.TODO(), sm, nil, b.Genesis.ParentStateRoot, b.Genesis.Height, ts)
+			if err != nil {
+				return nil, xerrors.Errorf("failed to upgrade: %w\n", err)
+			}
+			b.Genesis.ParentStateRoot = s
+
+			mmb, err := b.Genesis.ToStorageBlock()
+			if err != nil {
+				return nil, xerrors.Errorf("serializing msgmeta failed: %w", err)
+			}
+			if err := bs.Put(mmb); err != nil {
+				return nil, xerrors.Errorf("putting msgmeta block to blockstore: %w", err)
+			}
 
 			f, err := os.OpenFile(outFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 			if err != nil {
@@ -87,7 +108,9 @@ func MakeGenesis(outFile, genesisTemplate string) func(bs dtypes.ChainBlockstore
 			}
 
 			offl := offline.Exchange(bs)
+
 			blkserv := blockservice.New(bs, offl)
+
 			dserv := merkledag.NewDAGService(blkserv)
 
 			if err := car.WriteCarWithWalker(context.TODO(), dserv, []cid.Cid{b.Genesis.Cid()}, f, gen.CarWalkFunc); err != nil {
